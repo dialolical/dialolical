@@ -76,6 +76,8 @@ test.describe("Full dialogue lifecycle", () => {
     const dialogueUrl = pageB.url();
     await pageA.goto(dialogueUrl);
 
+    // Default is 3 turns per side = 6 total
+
     // Turn 1: Alice (challenger)
     await waitForText(pageA, "Your turn");
     await pageA.getByPlaceholder("Make your argument...").fill("Alice's first argument");
@@ -100,34 +102,14 @@ test.describe("Full dialogue lifecycle", () => {
     await pageB.getByRole("button", { name: "Submit turn" }).click();
     await waitForText(pageB, "Bob's second response");
 
-    // Turn 5: Alice (default maxTurns=5 per side, so 10 total — still in progress)
+    // Turn 5: Alice (rejoinder)
     await waitForText(pageA, "Your turn");
-    await pageA.getByPlaceholder("Make your argument...").fill("Alice's third argument");
+    await pageA.getByPlaceholder("Make your argument...").fill("Alice's rejoinder");
     await pageA.getByRole("button", { name: "Submit turn" }).click();
 
-    // Turn 6: Bob
+    // Turn 6: Bob (rejoinder) — triggers scoring (3 per side = 6 total)
     await waitForText(pageB, "Your turn");
-    await pageB.getByPlaceholder("Make your argument...").fill("Bob's third response");
-    await pageB.getByRole("button", { name: "Submit turn" }).click();
-
-    // Turn 7: Alice
-    await waitForText(pageA, "Your turn");
-    await pageA.getByPlaceholder("Make your argument...").fill("Alice's fourth argument");
-    await pageA.getByRole("button", { name: "Submit turn" }).click();
-
-    // Turn 8: Bob
-    await waitForText(pageB, "Your turn");
-    await pageB.getByPlaceholder("Make your argument...").fill("Bob's fourth response");
-    await pageB.getByRole("button", { name: "Submit turn" }).click();
-
-    // Turn 9: Alice
-    await waitForText(pageA, "Your turn");
-    await pageA.getByPlaceholder("Make your argument...").fill("Alice's fifth argument");
-    await pageA.getByRole("button", { name: "Submit turn" }).click();
-
-    // Turn 10: Bob — this should trigger scoring (5 turns per side = 10 total)
-    await waitForText(pageB, "Your turn");
-    await pageB.getByPlaceholder("Make your argument...").fill("Bob's fifth response");
+    await pageB.getByPlaceholder("Make your argument...").fill("Bob's rejoinder");
     await pageB.getByRole("button", { name: "Submit turn" }).click();
 
     // Should see scoring phase

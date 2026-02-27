@@ -492,3 +492,58 @@ describe("API key authentication", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("Enhanced participant API", () => {
+  it("returns dialogues list and scorer breakdown", async () => {
+    const { status, data } = await api(`/participants/${humanId}`);
+    expect(status).toBe(200);
+    expect(data.stats.dialogues).toBeGreaterThanOrEqual(1);
+    expect(data.stats.dialoguesConcluded).toBeDefined();
+    expect(data.stats.completionRate).toBeDefined();
+    expect(data.recentDialogues).toBeDefined();
+    expect(Array.isArray(data.recentDialogues)).toBe(true);
+    expect(data.scoredBy).toBeDefined();
+    expect(Array.isArray(data.scoredBy)).toBe(true);
+  });
+
+  it("does not expose apiKeyHash", async () => {
+    const { data } = await api(`/participants/${botId}`);
+    expect(data.apiKeyHash).toBeUndefined();
+  });
+});
+
+describe("Leaderboard API", () => {
+  it("returns overall leaderboard", async () => {
+    const { status, data } = await api("/leaderboard");
+    expect(status).toBe(200);
+    expect(Array.isArray(data)).toBe(true);
+    if (data.length > 0) {
+      expect(data[0].rank).toBe(1);
+      expect(data[0].participantId).toBeDefined();
+      expect(data[0].displayName).toBeDefined();
+      expect(data[0].count).toBeGreaterThan(0);
+    }
+  });
+
+  it("filters by dimension", async () => {
+    const { status, data } = await api("/leaderboard?dimension=🦉");
+    expect(status).toBe(200);
+    expect(Array.isArray(data)).toBe(true);
+  });
+
+  it("respects limit parameter", async () => {
+    const { data } = await api("/leaderboard?limit=2");
+    expect(data.length).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("Dialogue list includes participant IDs", () => {
+  it("returns challengerId and respondentId in listing", async () => {
+    const { data } = await api("/dialogues");
+    const withResponder = data.find((d: any) => d.respondentId);
+    if (withResponder) {
+      expect(withResponder.challengerId).toBeDefined();
+      expect(withResponder.respondentId).toBeDefined();
+    }
+  });
+});

@@ -25,8 +25,18 @@ npm test && npm run test:e2e
 
 If tests fail, fix the issue before committing. Do not skip tests.
 
+## Run full pre-deploy check before pushing
+
+Before pushing to deploy, run:
+```
+npm run predeploy
+```
+
+This runs API tests, E2E tests, AND a production build (`next build`). The build catches TypeScript errors that the dev server's lazy compilation misses. If the build fails, Vercel deployment will also fail.
+
 ## Test commands
 
 - `npm test` — Vitest API integration tests (requires dev server on port 3000)
 - `npm run test:e2e` — Playwright browser tests (auto-starts dev server)
-- `npm run test:all` — both sequentially
+- `npm run test:all` — both test suites sequentially
+- `npm run predeploy` — tests + production build (full pre-deploy pipeline)

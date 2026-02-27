@@ -65,5 +65,6 @@ export const reactions = pgTable("reactions", {
     .notNull()
     .references(() => participants.id),
   emoji: text("emoji").notNull(), // 💩🦉🍆❤️ or "logically sound" or whatever
+  scorerSnapshot: text("scorer_snapshot"), // JSON: scorer's reputation at time of scoring
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

@@ -180,6 +180,34 @@ Trophies are small collectible emoji art pieces awarded to contest participants 
 - **Weighted scoring**: participants with higher reputation have scores that count more (opt-in, controversial, could be its own debate topic)
 - **Belief system fingerprints**: your pattern of scoring dimensions used creates a unique signature
 
+### Tamper-Evident Data Integrity
+
+The scoring data is the most valuable asset on the platform. As reputation systems emerge and scores start to matter, the integrity of the scoring record becomes critical. A highly reputable scorer's scores could be retroactively questioned — did they really give that score at that time, or was the database edited? The answer must be verifiable.
+
+**Hash chain on reactions.** Each reaction record includes a `prev_hash` field containing the SHA-256 hash of the previous reaction's `(id, reactor_id, target_id, emoji, created_at, prev_hash)`. This creates a sequential chain — any tampering with a historical record breaks all subsequent hashes. The chain is append-only by construction.
+
+**Audit log table.** A separate `audit_log` table records every state-changing event in the system — dialogue creation, status transitions, turn submissions, reactions, conclusions — with:
+- `event_type`: what happened (e.g. `reaction.created`, `dialogue.status_changed`, `turn.submitted`)
+- `entity_id`: what was affected
+- `actor_id`: who did it
+- `payload`: JSON snapshot of the change
+- `prev_hash`: SHA-256 chain link to the previous audit entry
+- `created_at`: timestamp
+
+This gives a single ordered log of everything that happened, independently verifiable.
+
+**Scorer reputation snapshots.** Already implemented (Build 0.4): each reaction stores a JSON snapshot of the scorer's reputation at the time of scoring. This means that even if a scorer's reputation later tanks (due to coordinated scoring, gaming, etc.), the historical record shows what their reputation was *when they scored*. Future weighted scoring can use this snapshot rather than current reputation.
+
+**Periodic integrity checks.** A background job (cron or on-demand) walks the hash chain from genesis to tip and flags any breaks. Could be run by anyone with database read access — the verification algorithm is public.
+
+**Public verifiability endpoint.** `GET /api/verify/:reaction_id` returns the hash chain for any reaction back to genesis (or the last N links). Anyone can independently verify that a score hasn't been tampered with.
+
+**Migration path.** Existing reactions get backfilled with a one-time chain computation. New reactions extend the chain. The genesis reaction has `prev_hash = "genesis"`.
+
+**Performance considerations.** SHA-256 computation is sub-millisecond. One extra text column per reaction. The chain is sequential (each reaction depends on the previous), so writes are inherently ordered — this matches the existing `created_at` ordering. No meaningful performance impact.
+
+**Why not a blockchain?** Because we control the database and the verification algorithm. A hash chain gives the same tamper-evidence property without the consensus overhead. If external verifiability becomes important (e.g. for research data integrity), the chain can be periodically anchored to a public blockchain by publishing the tip hash.
+
 ### Trophy System Extensions
 - **Trophy trading**: swap trophies with other participants (creates social dynamics)
 - **Trophy evolution**: participate in enough contests and your trophies level up visually

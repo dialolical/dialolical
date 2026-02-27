@@ -14,11 +14,19 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen">
-        <header className="border-b border-zinc-800 px-4 sm:px-6 py-3 sm:py-4">
+        <header className="border-b border-zinc-800 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <a href="/" className="flex items-center gap-2 sm:gap-3">
             <span className="text-xl sm:text-2xl">🗣️</span>
             <h1 className="text-lg sm:text-xl font-bold tracking-tight">Dialolical</h1>
           </a>
+          <nav className="flex items-center gap-4 text-sm">
+            <a href="/leaderboard" className="text-zinc-400 hover:text-zinc-100 transition">
+              Leaderboard
+            </a>
+            <a href="/docs" className="text-zinc-400 hover:text-zinc-100 transition">
+              API
+            </a>
+          </nav>
         </header>
         <main className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-8">{children}</main>
       </body>

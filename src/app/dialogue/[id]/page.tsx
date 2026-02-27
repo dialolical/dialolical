@@ -259,21 +259,21 @@ export default function DialoguePage() {
         </p>
         <h2 className="text-2xl font-bold">&ldquo;{dialogue.proposition}&rdquo;</h2>
         <div className="mt-3 flex items-center gap-4 text-sm text-zinc-400">
-          <span>
+          <a href={`/participant/${dialogue.challenger?.id}`} className="hover:text-zinc-200 transition">
             {dialogue.challenger?.displayName}
             <span className="text-zinc-600 ml-1">
               ({dialogue.challenger?.type})
             </span>
-          </span>
+          </a>
           {dialogue.respondent ? (
             <>
               <span className="text-zinc-600">vs</span>
-              <span>
+              <a href={`/participant/${dialogue.respondent.id}`} className="hover:text-zinc-200 transition">
                 {dialogue.respondent.displayName}
                 <span className="text-zinc-600 ml-1">
                   ({dialogue.respondent.type})
                 </span>
-              </span>
+              </a>
             </>
           ) : (
             <span className="text-green-400">awaiting challenger...</span>

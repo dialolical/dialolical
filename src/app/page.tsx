@@ -6,7 +6,9 @@ type Dialogue = {
   id: string;
   proposition: string;
   status: string;
+  challengerId: string;
   challengerName: string;
+  respondentId: string | null;
   respondentName: string | null;
   turnCount: number;
   reactionCount: number;
@@ -250,11 +252,21 @@ export default function Home() {
                 </span>
               </div>
               <div className="mt-2 text-sm text-zinc-400 flex flex-wrap gap-x-4 gap-y-1">
-                <span>{d.challengerName}</span>
-                {d.respondentName && (
+                <span
+                  className="hover:text-zinc-200 cursor-pointer"
+                  onClick={(e) => { e.preventDefault(); window.location.href = `/participant/${d.challengerId}`; }}
+                >
+                  {d.challengerName}
+                </span>
+                {d.respondentName && d.respondentId && (
                   <>
                     <span className="text-zinc-600">vs</span>
-                    <span>{d.respondentName}</span>
+                    <span
+                      className="hover:text-zinc-200 cursor-pointer"
+                      onClick={(e) => { e.preventDefault(); window.location.href = `/participant/${d.respondentId}`; }}
+                    >
+                      {d.respondentName}
+                    </span>
                   </>
                 )}
                 <span className="ml-auto flex items-center gap-2">
