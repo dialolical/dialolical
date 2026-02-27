@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { dialogues, participants, turns, reactions } from "@/db/schema";
 import { nanoid } from "nanoid";
 import { eq, desc, sql } from "drizzle-orm";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +55,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = checkRateLimit(req);
+  if (limited) return limited;
+
   const body = await req.json();
   const { proposition, challengerId, maxTurns } = body;
 

@@ -29,6 +29,7 @@ async function api(path: string, body?: any): Promise<{ status: number; data: an
 // Shared state across sequential tests
 let humanId: string;
 let botId: string;
+let botApiKey: string;
 let dialogueId: string;
 let turnIds: string[] = [];
 
@@ -85,7 +86,7 @@ describe("Participants", () => {
     humanId = data.id;
   });
 
-  it("creates a bot participant with botModel", async () => {
+  it("creates a bot participant with botModel and receives API key", async () => {
     const { status, data } = await api("/participants", {
       type: "bot",
       identityType: "named",
@@ -96,7 +97,20 @@ describe("Participants", () => {
     expect(data.id).toBeDefined();
     expect(data.type).toBe("bot");
     expect(data.botModel).toBe("test-model-v1");
+    expect(data.apiKey).toBeDefined();
+    expect(data.apiKey.length).toBe(24);
+    expect(data.apiKeyHash).toBeUndefined();
     botId = data.id;
+    botApiKey = data.apiKey;
+  });
+
+  it("does not return API key for human participants", async () => {
+    const { data } = await api("/participants", {
+      type: "human",
+      identityType: "anonymous",
+      displayName: `NoKeyHuman-${uid()}`,
+    });
+    expect(data.apiKey).toBeUndefined();
   });
 
   it("rejects missing fields with 400", async () => {
@@ -384,5 +398,97 @@ describe("Conclusions", () => {
     expect(data.conclusionChallenger).toBe("My final position as challenger.");
     expect(data.conclusionResponder).toBe("My final position as responder.");
     expect(data.turns).toHaveLength(4);
+  });
+});
+
+describe("API key authentication", () => {
+  let keyBotId: string;
+  let keyBotApiKey: string;
+  let keyDialogueId: string;
+
+  it("registers a bot and gets API key", async () => {
+    const { status, data } = await api("/participants", {
+      type: "bot",
+      identityType: "named",
+      displayName: `KeyBot-${uid()}`,
+      botModel: "key-test-v1",
+    });
+    expect(status).toBe(201);
+    expect(data.apiKey).toBeDefined();
+    keyBotId = data.id;
+    keyBotApiKey = data.apiKey;
+  });
+
+  it("creates a dialogue for key-auth testing", async () => {
+    const { data } = await api("/dialogues", {
+      proposition: `Key auth test ${uid()}`,
+      challengerId: keyBotId,
+      maxTurns: 1,
+    });
+    keyDialogueId = data.id;
+  });
+
+  it("joins a dialogue using API key header (no participantId in body)", async () => {
+    // Create another bot to join
+    const { data: joiner } = await api("/participants", {
+      type: "bot",
+      identityType: "named",
+      displayName: `KeyJoiner-${uid()}`,
+    });
+    const joinerKey = joiner.apiKey;
+
+    const res = await fetch(`${BASE}/api/dialogues/${keyDialogueId}/join`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${joinerKey}`,
+      },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.status).toBe("in_progress");
+  });
+
+  it("submits a turn using API key header", async () => {
+    const res = await fetch(`${BASE}/api/dialogues/${keyDialogueId}/turns`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${keyBotApiKey}`,
+      },
+      body: JSON.stringify({ content: "Argument via API key" }),
+    });
+    expect(res.status).toBe(201);
+  });
+
+  it("submits a reaction using API key header", async () => {
+    const res = await fetch(`${BASE}/api/reactions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${keyBotApiKey}`,
+      },
+      body: JSON.stringify({
+        targetType: "dialogue",
+        targetId: keyDialogueId,
+        emoji: "🔑",
+      }),
+    });
+    expect(res.status).toBe(201);
+  });
+
+  it("rejects invalid API key", async () => {
+    const res = await fetch(`${BASE}/api/dialogues/${keyDialogueId}/turns`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer invalid-key-that-does-not-exist",
+      },
+      body: JSON.stringify({ content: "Should fail" }),
+    });
+    // Falls back to no participantId, which means 400
+    const data = await res.json();
+    expect(res.status).toBe(400);
   });
 });

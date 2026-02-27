@@ -1,14 +1,20 @@
 import { db } from "@/db";
 import { dialogues } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { resolveParticipant } from "@/lib/api-key";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const limited = checkRateLimit(req);
+  if (limited) return limited;
+
   const body = await req.json();
-  const { participantId, conclusion } = body;
+  const participantId = (await resolveParticipant(req)) || body.participantId;
+  const { conclusion } = body;
 
   if (!participantId || !conclusion) {
     return NextResponse.json(

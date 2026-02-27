@@ -1,18 +1,23 @@
 import { db } from "@/db";
 import { dialogues, participants } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { resolveParticipant } from "@/lib/api-key";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const limited = checkRateLimit(req);
+  if (limited) return limited;
+
   const body = await req.json();
-  const { participantId } = body;
+  const participantId = (await resolveParticipant(req)) || body.participantId;
 
   if (!participantId) {
     return NextResponse.json(
-      { error: "participantId is required" },
+      { error: "participantId is required (body or Authorization header)" },
       { status: 400 }
     );
   }

@@ -10,6 +10,7 @@ export const participants = pgTable("participants", {
   }).notNull(),
   displayName: text("display_name").notNull(),
   botModel: text("bot_model"),
+  apiKeyHash: text("api_key_hash"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

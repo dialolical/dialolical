@@ -2,11 +2,17 @@ import { db } from "@/db";
 import { reactions, participants } from "@/db/schema";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
+import { resolveParticipant } from "@/lib/api-key";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
+  const limited = checkRateLimit(req);
+  if (limited) return limited;
+
   const body = await req.json();
-  const { targetType, targetId, reactorId, emoji } = body;
+  const reactorId = (await resolveParticipant(req)) || body.reactorId;
+  const { targetType, targetId, emoji } = body;
 
   if (!targetType || !targetId || !reactorId || !emoji) {
     return NextResponse.json(
