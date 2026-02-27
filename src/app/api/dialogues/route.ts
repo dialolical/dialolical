@@ -4,6 +4,8 @@ import { nanoid } from "nanoid";
 import { eq, desc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 const VALID_STATUSES = ["open", "in_progress", "scoring", "concluded"];
 
 export async function GET(req: NextRequest) {

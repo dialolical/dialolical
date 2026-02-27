@@ -3,6 +3,8 @@ import { dialogues, turns, reactions, participants } from "@/db/schema";
 import { eq, asc, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
