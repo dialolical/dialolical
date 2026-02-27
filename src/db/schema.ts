@@ -55,6 +55,22 @@ export const turns = pgTable("turns", {
 // targetType + targetId = polymorphic reference to either a turn or a dialogue
 // emoji = any string (emoji, word, phrase — the ontology is open)
 
+// --- Trophies ---
+
+export const trophies = pgTable("trophies", {
+  id: text("id").primaryKey(),
+  participantId: text("participant_id")
+    .notNull()
+    .references(() => participants.id),
+  dialogueId: text("dialogue_id")
+    .notNull()
+    .references(() => dialogues.id),
+  type: text("type", { enum: ["winner", "participant"] }).notNull(),
+  emojis: text("emojis").notNull(), // JSON: [{ emoji, count }]
+  title: text("title").notNull(),
+  awardedAt: timestamp("awarded_at").notNull().defaultNow(),
+});
+
 export const reactions = pgTable("reactions", {
   id: text("id").primaryKey(),
   targetType: text("target_type", {

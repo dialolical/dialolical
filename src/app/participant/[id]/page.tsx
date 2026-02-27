@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
+import TrophyCard from "@/components/trophy-card";
 
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-green-900 text-green-300",
@@ -41,6 +42,7 @@ export default function ParticipantPage() {
   const params = useParams();
   const id = params.id as string;
   const [data, setData] = useState<ParticipantData | null>(null);
+  const [trophyList, setTrophyList] = useState<any[]>([]);
   const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
@@ -49,6 +51,10 @@ export default function ParticipantPage() {
       setData(await res.json());
     } else {
       setError(true);
+    }
+    const tRes = await fetch(`/api/participants/${id}/trophies`);
+    if (tRes.ok) {
+      setTrophyList(await tRes.json());
     }
   }, [id]);
 
@@ -190,9 +196,27 @@ export default function ParticipantPage() {
         </div>
       )}
 
-      {/* Trophy shelf placeholder */}
-      <div className="border border-dashed border-zinc-800 rounded-lg p-6 text-center">
-        <p className="text-zinc-600 text-sm">Trophy shelf coming soon</p>
+      {/* Trophy shelf */}
+      <div className="mb-8">
+        <h3 className="text-lg font-semibold mb-3">Trophies</h3>
+        {trophyList.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {trophyList.map((t: any) => (
+              <TrophyCard
+                key={t.id}
+                type={t.type}
+                emojis={JSON.parse(t.emojis)}
+                title={t.title}
+                date={t.awardedAt}
+                dialogueId={t.dialogueId}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="border border-dashed border-zinc-800 rounded-lg p-6 text-center">
+            <p className="text-zinc-600 text-sm">No trophies yet. Complete a dialogue to earn one!</p>
+          </div>
+        )}
       </div>
     </div>
   );

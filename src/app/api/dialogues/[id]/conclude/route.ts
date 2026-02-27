@@ -3,6 +3,7 @@ import { dialogues } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { resolveParticipant } from "@/lib/api-key";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { awardTrophiesForDialogue } from "@/lib/award-trophies";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
@@ -89,6 +90,11 @@ export async function POST(
     .select()
     .from(dialogues)
     .where(eq(dialogues.id, params.id));
+
+  // Award trophies when dialogue concludes
+  if (updated.status === "concluded") {
+    awardTrophiesForDialogue(params.id).catch(() => {});
+  }
 
   return NextResponse.json(updated);
 }

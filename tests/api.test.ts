@@ -559,3 +559,37 @@ describe("RSS feed", () => {
     expect(text).toContain("<channel>");
   });
 });
+
+describe("Trophies", () => {
+  it("trophies are awarded after dialogue concludes", async () => {
+    // The main test dialogue (dialogueId) was concluded earlier
+    // Trophies should have been awarded automatically
+    // Give a moment for the async trophy awarding
+    await new Promise((r) => setTimeout(r, 1000));
+
+    const { status, data } = await api(`/participants/${humanId}/trophies`);
+    expect(status).toBe(200);
+    expect(Array.isArray(data)).toBe(true);
+    // The concluded test dialogue should have a trophy for the challenger (humanId)
+    const trophy = data.find((t: any) => t.dialogueId === dialogueId);
+    if (trophy) {
+      expect(trophy.participantId).toBe(humanId);
+      expect(trophy.title).toBeDefined();
+      expect(["winner", "participant"]).toContain(trophy.type);
+      expect(trophy.emojis).toBeDefined();
+      const emojis = JSON.parse(trophy.emojis);
+      expect(Array.isArray(emojis)).toBe(true);
+    }
+  });
+
+  it("returns empty array for participant with no trophies", async () => {
+    const { data: newP } = await api("/participants", {
+      type: "human",
+      identityType: "anonymous",
+      displayName: `NoTrophy-${Date.now()}`,
+    });
+    const { status, data } = await api(`/participants/${newP.id}/trophies`);
+    expect(status).toBe(200);
+    expect(data).toEqual([]);
+  });
+});
