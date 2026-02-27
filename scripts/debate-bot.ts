@@ -34,6 +34,25 @@ interface Bot {
   generate: (proposition: string, role: string, turns: string[]) => Promise<string>;
 }
 
+async function withRetry<T>(fn: () => Promise<T>, label: string, maxAttempts = 5): Promise<T> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const status = err?.status || err?.response?.status;
+      if (status === 429 && attempt < maxAttempts) {
+        const retryAfter = err?.headers?.get?.("retry-after");
+        const waitSec = retryAfter ? parseInt(retryAfter, 10) : attempt * 15;
+        console.log(`  [${label}] Rate limited. Waiting ${waitSec}s (attempt ${attempt}/${maxAttempts})...`);
+        await new Promise((r) => setTimeout(r, waitSec * 1000));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("unreachable");
+}
+
 async function api(path: string, body?: any, apiKey?: string) {
   const headers: Record<string, string> = {};
   if (body) headers["Content-Type"] = "application/json";
@@ -83,8 +102,8 @@ async function main() {
 
   console.log(`\nProposition: "${proposition}"\n`);
 
-  const anthropic = new Anthropic();
-  const openai = new OpenAI();
+  const anthropic = new Anthropic({ maxRetries: 5 });
+  const openai = new OpenAI({ maxRetries: 5 });
 
   // Register bots
   console.log("Registering bots...");
@@ -106,12 +125,14 @@ async function main() {
     apiKey: claudeReg.apiKey,
     name: "Claude",
     async generate(prop, role, turns) {
-      const msg = await anthropic.messages.create({
-        model: "claude-sonnet-4-5",
-        max_tokens: 500,
-        messages: [{ role: "user", content: buildPrompt(prop, role, turns) }],
-      });
-      return (msg.content[0] as { text: string }).text;
+      return withRetry(async () => {
+        const msg = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 500,
+          messages: [{ role: "user", content: buildPrompt(prop, role, turns) }],
+        });
+        return (msg.content[0] as { text: string }).text;
+      }, "Claude");
     },
   };
 
@@ -120,12 +141,14 @@ async function main() {
     apiKey: gptReg.apiKey,
     name: "GPT-4o",
     async generate(prop, role, turns) {
-      const res = await openai.chat.completions.create({
-        model: "gpt-4o",
-        max_tokens: 500,
-        messages: [{ role: "user", content: buildPrompt(prop, role, turns) }],
-      });
-      return res.choices[0].message.content || "";
+      return withRetry(async () => {
+        const res = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 500,
+          messages: [{ role: "user", content: buildPrompt(prop, role, turns) }],
+        });
+        return res.choices[0].message.content || "";
+      }, "GPT-4o");
     },
   };
 
@@ -167,19 +190,23 @@ async function main() {
 
     let conclusion: string;
     if (bot === claude) {
-      const msg = await anthropic.messages.create({
-        model: "claude-sonnet-4-5",
-        max_tokens: 300,
-        messages: [{ role: "user", content: conclusionPrompt }],
-      });
-      conclusion = (msg.content[0] as { text: string }).text;
+      conclusion = await withRetry(async () => {
+        const msg = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 300,
+          messages: [{ role: "user", content: conclusionPrompt }],
+        });
+        return (msg.content[0] as { text: string }).text;
+      }, "Claude conclusion");
     } else {
-      const res = await openai.chat.completions.create({
-        model: "gpt-4o",
-        max_tokens: 300,
-        messages: [{ role: "user", content: conclusionPrompt }],
-      });
-      conclusion = res.choices[0].message.content || "";
+      conclusion = await withRetry(async () => {
+        const res = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 300,
+          messages: [{ role: "user", content: conclusionPrompt }],
+        });
+        return res.choices[0].message.content || "";
+      }, "GPT-4o conclusion");
     }
 
     console.log(`${bot.name}'s conclusion: ${conclusion.slice(0, 150)}...`);

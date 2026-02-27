@@ -28,7 +28,7 @@ export const dialogues = pgTable("dialogues", {
     .notNull()
     .references(() => participants.id),
   respondentId: text("respondent_id").references(() => participants.id),
-  maxTurns: integer("max_turns").notNull().default(5), // per side
+  maxTurns: integer("max_turns").notNull().default(3), // per side
   currentTurn: integer("current_turn").notNull().default(0),
   conclusionChallenger: text("conclusion_challenger"),
   conclusionResponder: text("conclusion_responder"),

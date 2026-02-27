@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     id,
     proposition,
     challengerId,
-    maxTurns: maxTurns || 5,
+    maxTurns: maxTurns || 3,
   };
 
   await db.insert(dialogues).values(dialogue);
