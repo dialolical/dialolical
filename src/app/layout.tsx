@@ -13,6 +13,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="alternate" type="application/rss+xml" title="Dialolical — Concluded Dialogues" href="/feed.xml" />
+      </head>
       <body className="min-h-screen">
         <header className="border-b border-zinc-800 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <a href="/" className="flex items-center gap-2 sm:gap-3">

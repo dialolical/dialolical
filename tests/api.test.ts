@@ -547,3 +547,15 @@ describe("Dialogue list includes participant IDs", () => {
     }
   });
 });
+
+describe("RSS feed", () => {
+  it("returns valid RSS XML", async () => {
+    const res = await fetch(`${BASE}/feed.xml`);
+    expect(res.status).toBe(200);
+    const ct = res.headers.get("content-type");
+    expect(ct).toContain("rss+xml");
+    const text = await res.text();
+    expect(text).toContain("<rss");
+    expect(text).toContain("<channel>");
+  });
+});
