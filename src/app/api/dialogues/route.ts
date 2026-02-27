@@ -73,5 +73,5 @@ export async function POST(req: NextRequest) {
 
   await db.insert(dialogues).values(dialogue);
 
-  return NextResponse.json({ id, ...dialogue, status: "open" }, { status: 201 });
+  return NextResponse.json({ ...dialogue, status: "open" }, { status: 201 });
 }
