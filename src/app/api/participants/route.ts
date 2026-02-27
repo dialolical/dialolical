@@ -15,16 +15,13 @@ export async function POST(req: NextRequest) {
   }
 
   const id = nanoid(12);
-  const participant: Record<string, any> = {
+  const participant = {
     id,
     type: type as "human" | "bot",
     identityType: identityType as "anonymous" | "pseudonymous" | "named",
     displayName,
+    botModel: type === "bot" && botModel ? (botModel as string) : undefined,
   };
-
-  if (botModel && type === "bot") {
-    participant.botModel = botModel;
-  }
 
   await db.insert(participants).values(participant);
 
