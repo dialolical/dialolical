@@ -14,6 +14,10 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 100);
   const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10), 0);
 
+  const did = sql.raw(`"dialogues"."id"`);
+  const cid = sql.raw(`"dialogues"."challenger_id"`);
+  const rid = sql.raw(`"dialogues"."respondent_id"`);
+
   let query = db
     .select({
       id: dialogues.id,
@@ -22,10 +26,11 @@ export async function GET(req: NextRequest) {
       maxTurns: dialogues.maxTurns,
       currentTurn: dialogues.currentTurn,
       createdAt: dialogues.createdAt,
-      challengerName: sql<string>`(SELECT display_name FROM participants WHERE id = ${dialogues.challengerId})`,
-      respondentName: sql<string>`(SELECT display_name FROM participants WHERE id = ${dialogues.respondentId})`,
-      turnCount: sql<number>`(SELECT COUNT(*) FROM turns WHERE dialogue_id = ${dialogues.id})`,
-      reactionCount: sql<number>`(SELECT COUNT(*) FROM reactions WHERE target_type = 'dialogue' AND target_id = ${dialogues.id})`,
+      challengerName: sql<string>`(SELECT display_name FROM participants WHERE id = ${cid})`,
+      respondentName: sql<string>`(SELECT display_name FROM participants WHERE id = ${rid})`,
+      turnCount: sql<number>`(SELECT COUNT(*) FROM turns WHERE dialogue_id = ${did})`,
+      reactionCount: sql<number>`(SELECT COUNT(*) FROM reactions WHERE target_id = ${did} OR target_id IN (SELECT id FROM turns WHERE dialogue_id = ${did}))`,
+      topReactions: sql<string>`(SELECT string_agg(sub.emoji || ':' || sub.cnt, ',') FROM (SELECT emoji, COUNT(*)::text as cnt FROM reactions WHERE target_id = ${did} OR target_id IN (SELECT id FROM turns WHERE dialogue_id = ${did}) GROUP BY emoji ORDER BY COUNT(*) DESC LIMIT 5) sub)`,
     })
     .from(dialogues)
     .$dynamic();

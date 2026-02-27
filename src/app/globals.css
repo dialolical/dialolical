@@ -5,3 +5,13 @@
 body {
   @apply bg-zinc-950 text-zinc-100;
 }
+
+@keyframes reaction-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.reaction-pop {
+  animation: reaction-pop 200ms ease-out;
+}

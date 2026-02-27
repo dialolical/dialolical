@@ -10,9 +10,18 @@ type Dialogue = {
   respondentName: string | null;
   turnCount: number;
   reactionCount: number;
+  topReactions: string | null;
   maxTurns: number;
   currentTurn: number;
 };
+
+function parseTopReactions(raw: string | null): [string, string][] {
+  if (!raw) return [];
+  return raw.split(",").map((pair) => {
+    const [emoji, count] = pair.split(":");
+    return [emoji, count] as [string, string];
+  });
+}
 
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-green-900 text-green-300",
@@ -202,8 +211,11 @@ export default function Home() {
                     <span>{d.respondentName}</span>
                   </>
                 )}
-                <span className="ml-auto">
-                  {d.turnCount} turns · {d.reactionCount} reactions
+                <span className="ml-auto flex items-center gap-2">
+                  {parseTopReactions(d.topReactions).map(([emoji, count]) => (
+                    <span key={emoji} className="text-xs">{emoji}{count}</span>
+                  ))}
+                  <span>{d.turnCount} turns</span>
                 </span>
               </div>
             </a>

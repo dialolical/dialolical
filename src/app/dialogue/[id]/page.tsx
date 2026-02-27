@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 
 const QUICK_REACTIONS = ["🦉", "💩", "🔥", "🍆", "❤️", "🧠", "🤡", "⚔️"];
@@ -28,6 +28,12 @@ type DialogueData = {
   conclusionResponder: string | null;
 };
 
+function topEmojis(reactions: Record<string, number>, n = 3) {
+  return Object.entries(reactions)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n);
+}
+
 export default function DialoguePage() {
   const params = useParams();
   const dialogueId = params.id as string;
@@ -36,6 +42,9 @@ export default function DialoguePage() {
   const [turnContent, setTurnContent] = useState("");
   const [customEmoji, setCustomEmoji] = useState("");
   const [conclusionText, setConclusionText] = useState("");
+  const [poppedKey, setPoppedKey] = useState<string | null>(null);
+  const [turnCustomInputs, setTurnCustomInputs] = useState<Record<string, string>>({});
+  const popTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/dialogues/${dialogueId}`);
@@ -74,14 +83,59 @@ export default function DialoguePage() {
     load();
   }
 
-  async function react(targetType: "turn" | "dialogue", targetId: string, emoji: string) {
-    if (!participantId) return;
-    await fetch("/api/reactions", {
+  function react(targetType: "turn" | "dialogue", targetId: string, emoji: string) {
+    if (!participantId || !dialogue) return;
+
+    // Pop animation
+    const key = `${targetId}-${emoji}`;
+    setPoppedKey(key);
+    if (popTimer.current) clearTimeout(popTimer.current);
+    popTimer.current = setTimeout(() => setPoppedKey(null), 300);
+
+    // Optimistic update
+    setDialogue((prev) => {
+      if (!prev) return prev;
+      if (targetType === "turn") {
+        return {
+          ...prev,
+          turns: prev.turns.map((t) =>
+            t.id === targetId
+              ? { ...t, reactions: { ...t.reactions, [emoji]: (t.reactions[emoji] || 0) + 1 } }
+              : t
+          ),
+        };
+      }
+      return {
+        ...prev,
+        reactions: { ...prev.reactions, [emoji]: (prev.reactions[emoji] || 0) + 1 },
+      };
+    });
+
+    // Fire and forget — polling reconciles
+    fetch("/api/reactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetType, targetId, reactorId: participantId, emoji }),
+    }).catch(() => {
+      // Rollback on failure
+      setDialogue((prev) => {
+        if (!prev) return prev;
+        if (targetType === "turn") {
+          return {
+            ...prev,
+            turns: prev.turns.map((t) =>
+              t.id === targetId
+                ? { ...t, reactions: { ...t.reactions, [emoji]: Math.max((t.reactions[emoji] || 1) - 1, 0) } }
+                : t
+            ),
+          };
+        }
+        return {
+          ...prev,
+          reactions: { ...prev.reactions, [emoji]: Math.max((prev.reactions[emoji] || 1) - 1, 0) },
+        };
+      });
     });
-    load();
   }
 
   async function submitConclusion() {
@@ -125,6 +179,77 @@ export default function DialoguePage() {
       : "respondent";
   }
 
+  function btnClass(targetId: string, emoji: string, base: string) {
+    const key = `${targetId}-${emoji}`;
+    return poppedKey === key ? `${base} reaction-pop` : base;
+  }
+
+  function renderReactionBar(
+    targetType: "turn" | "dialogue",
+    targetId: string,
+    reactions: Record<string, number>
+  ) {
+    const customKey = targetType === "dialogue" ? "dialogue" : targetId;
+    const customValue = targetType === "dialogue" ? customEmoji : (turnCustomInputs[targetId] || "");
+    const setCustomValue = (val: string) => {
+      if (targetType === "dialogue") {
+        setCustomEmoji(val);
+      } else {
+        setTurnCustomInputs((prev) => ({ ...prev, [targetId]: val }));
+      }
+    };
+    const submitCustom = () => {
+      if (customValue.trim()) {
+        react(targetType, targetId, customValue.trim());
+        setCustomValue("");
+      }
+    };
+
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {Object.entries(reactions).map(([emoji, count]) => (
+          <button
+            key={emoji}
+            onClick={() => react(targetType, targetId, emoji)}
+            className={btnClass(
+              targetId,
+              emoji,
+              "bg-zinc-700 hover:bg-zinc-600 rounded-full px-2 py-0.5 text-sm transition-all"
+            )}
+          >
+            {emoji} {count}
+          </button>
+        ))}
+        {QUICK_REACTIONS.filter((e) => !(e in reactions)).map((emoji) => (
+          <button
+            key={emoji}
+            onClick={() => react(targetType, targetId, emoji)}
+            className={btnClass(
+              targetId,
+              emoji,
+              "opacity-30 hover:opacity-100 text-sm transition-all"
+            )}
+          >
+            {emoji}
+          </button>
+        ))}
+        {participantId && (
+          <span className="inline-flex items-center gap-1 ml-1">
+            <input
+              className="w-24 bg-zinc-800 border border-zinc-700 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-zinc-500 focus:w-40 transition-all"
+              placeholder="+ custom"
+              value={customValue}
+              onChange={(e) => setCustomValue(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitCustom()}
+            />
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  const headerTopReactions = topEmojis(dialogue.reactions);
+
   return (
     <div>
       {/* Proposition */}
@@ -153,8 +278,15 @@ export default function DialoguePage() {
           ) : (
             <span className="text-green-400">awaiting challenger...</span>
           )}
-          <span className="ml-auto text-zinc-500">
-            {dialogue.currentTurn}/{dialogue.maxTurns * 2} turns
+          <span className="ml-auto flex items-center gap-3 text-zinc-500">
+            {headerTopReactions.length > 0 && (
+              <span className="flex gap-1.5">
+                {headerTopReactions.map(([emoji, count]) => (
+                  <span key={emoji} className="text-xs">{emoji}{count}</span>
+                ))}
+              </span>
+            )}
+            <span>{dialogue.currentTurn}/{dialogue.maxTurns * 2} turns</span>
           </span>
         </div>
       </div>
@@ -187,30 +319,8 @@ export default function DialoguePage() {
               </span>
             </div>
             <p className="text-zinc-200 whitespace-pre-wrap">{turn.content}</p>
-
-            {/* Turn reactions */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {Object.entries(turn.reactions).map(([emoji, count]) => (
-                <button
-                  key={emoji}
-                  onClick={() => react("turn", turn.id, emoji)}
-                  className="bg-zinc-700 hover:bg-zinc-600 rounded-full px-2 py-0.5 text-sm transition"
-                >
-                  {emoji} {count}
-                </button>
-              ))}
-              {/* Quick react buttons */}
-              {QUICK_REACTIONS.filter((e) => !(e in turn.reactions)).map(
-                (emoji) => (
-                  <button
-                    key={emoji}
-                    onClick={() => react("turn", turn.id, emoji)}
-                    className="opacity-30 hover:opacity-100 text-sm transition"
-                  >
-                    {emoji}
-                  </button>
-                )
-              )}
+            <div className="mt-3">
+              {renderReactionBar("turn", turn.id, turn.reactions)}
             </div>
           </div>
         ))}
@@ -244,117 +354,73 @@ export default function DialoguePage() {
         </p>
       )}
 
-      {/* Scoring phase */}
-      {(dialogue.status === "scoring" || dialogue.status === "concluded") && (
-        <div className="border border-purple-800 rounded-lg p-6 mb-8">
-          <h3 className="text-lg font-semibold text-purple-300 mb-3">
-            {dialogue.status === "scoring" ? "⚖️ Scoring phase" : "🏁 Concluded"}
-          </h3>
+      {/* Dialogue-level scoring — available in all active states */}
+      {dialogue.status !== "open" && (
+        <div className="border border-zinc-800 rounded-lg p-6 mb-8">
+          {/* Conclusions section (scoring/concluded only) */}
+          {(dialogue.status === "scoring" || dialogue.status === "concluded") && (
+            <>
+              <h3 className="text-lg font-semibold text-purple-300 mb-3">
+                {dialogue.status === "scoring" ? "⚖️ Scoring phase" : "🏁 Concluded"}
+              </h3>
 
-          {/* Conclusions */}
-          {(dialogue.conclusionChallenger || dialogue.conclusionResponder) && (
-            <div className="space-y-3 mb-4">
-              {dialogue.conclusionChallenger && (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-                  <p className="text-xs text-zinc-500 mb-1">
-                    {dialogue.challenger?.displayName}&apos;s conclusion
-                  </p>
-                  <p className="text-zinc-200 whitespace-pre-wrap">
-                    {dialogue.conclusionChallenger}
-                  </p>
+              {(dialogue.conclusionChallenger || dialogue.conclusionResponder) && (
+                <div className="space-y-3 mb-4">
+                  {dialogue.conclusionChallenger && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+                      <p className="text-xs text-zinc-500 mb-1">
+                        {dialogue.challenger?.displayName}&apos;s conclusion
+                      </p>
+                      <p className="text-zinc-200 whitespace-pre-wrap">
+                        {dialogue.conclusionChallenger}
+                      </p>
+                    </div>
+                  )}
+                  {dialogue.conclusionResponder && (
+                    <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-3">
+                      <p className="text-xs text-zinc-500 mb-1">
+                        {dialogue.respondent?.displayName}&apos;s conclusion
+                      </p>
+                      <p className="text-zinc-200 whitespace-pre-wrap">
+                        {dialogue.conclusionResponder}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
-              {dialogue.conclusionResponder && (
-                <div className="bg-zinc-800 border border-zinc-700 rounded-lg p-3">
-                  <p className="text-xs text-zinc-500 mb-1">
-                    {dialogue.respondent?.displayName}&apos;s conclusion
-                  </p>
-                  <p className="text-zinc-200 whitespace-pre-wrap">
-                    {dialogue.conclusionResponder}
-                  </p>
-                </div>
-              )}
-            </div>
+
+              {dialogue.status === "scoring" &&
+                participantId &&
+                ((participantId === dialogue.challenger?.id &&
+                  !dialogue.conclusionChallenger) ||
+                  (participantId === dialogue.respondent?.id &&
+                    !dialogue.conclusionResponder)) && (
+                  <div className="mb-4">
+                    <p className="text-sm text-zinc-400 mb-2">
+                      Submit your conclusion — what&apos;s your final position?
+                    </p>
+                    <textarea
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 focus:outline-none focus:border-zinc-500 min-h-[80px]"
+                      placeholder="My conclusion is..."
+                      value={conclusionText}
+                      onChange={(e) => setConclusionText(e.target.value)}
+                    />
+                    <button
+                      onClick={submitConclusion}
+                      className="mt-2 bg-purple-800 text-purple-100 font-semibold px-5 py-2 rounded hover:bg-purple-700 transition"
+                    >
+                      Submit conclusion
+                    </button>
+                  </div>
+                )}
+            </>
           )}
 
-          {/* Conclusion submission */}
-          {dialogue.status === "scoring" &&
-            participantId &&
-            ((participantId === dialogue.challenger?.id &&
-              !dialogue.conclusionChallenger) ||
-              (participantId === dialogue.respondent?.id &&
-                !dialogue.conclusionResponder)) && (
-              <div className="mb-4">
-                <p className="text-sm text-zinc-400 mb-2">
-                  Submit your conclusion — what&apos;s your final position?
-                </p>
-                <textarea
-                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 focus:outline-none focus:border-zinc-500 min-h-[80px]"
-                  placeholder="My conclusion is..."
-                  value={conclusionText}
-                  onChange={(e) => setConclusionText(e.target.value)}
-                />
-                <button
-                  onClick={submitConclusion}
-                  className="mt-2 bg-purple-800 text-purple-100 font-semibold px-5 py-2 rounded hover:bg-purple-700 transition"
-                >
-                  Submit conclusion
-                </button>
-              </div>
-            )}
-
-          {/* Dialogue-level reactions */}
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            {Object.entries(dialogue.reactions).map(([emoji, count]) => (
-              <button
-                key={emoji}
-                onClick={() => react("dialogue", dialogue.id, emoji)}
-                className="bg-zinc-700 hover:bg-zinc-600 rounded-full px-3 py-1 text-sm transition"
-              >
-                {emoji} {count}
-              </button>
-            ))}
-            {QUICK_REACTIONS.filter((e) => !(e in dialogue.reactions)).map(
-              (emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => react("dialogue", dialogue.id, emoji)}
-                  className="opacity-30 hover:opacity-100 transition"
-                >
-                  {emoji}
-                </button>
-              )
-            )}
-          </div>
-
-          {/* Custom reaction */}
-          {participantId && (
-            <div className="flex gap-2">
-              <input
-                className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-3 py-1 text-sm focus:outline-none focus:border-zinc-500"
-                placeholder="Custom reaction (emoji or text)..."
-                value={customEmoji}
-                onChange={(e) => setCustomEmoji(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && customEmoji.trim()) {
-                    react("dialogue", dialogue.id, customEmoji.trim());
-                    setCustomEmoji("");
-                  }
-                }}
-              />
-              <button
-                onClick={() => {
-                  if (customEmoji.trim()) {
-                    react("dialogue", dialogue.id, customEmoji.trim());
-                    setCustomEmoji("");
-                  }
-                }}
-                className="bg-zinc-700 text-zinc-300 px-3 py-1 rounded text-sm hover:bg-zinc-600 transition"
-              >
-                React
-              </button>
-            </div>
-          )}
+          {/* Dialogue-level reactions — always visible when not open */}
+          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">
+            Score this dialogue
+          </p>
+          {renderReactionBar("dialogue", dialogue.id, dialogue.reactions)}
         </div>
       )}
 
