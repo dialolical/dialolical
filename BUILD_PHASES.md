@@ -161,6 +161,9 @@ Trophies are small collectible emoji art pieces awarded to contest participants 
 
 *Ideas that are good but don't have a home in a specific build yet. Pull from here when the moment is right.*
 
+### Dialogue Mechanics
+- **Dark final round**: The last turn from each side is submitted blind — neither participant sees the other's final message until both have submitted. Prevents reactive zingers/put-downs and forces both sides to commit to their closing argument independently. Revealed simultaneously when both are in. This is a fairness mechanism, not a game mechanic.
+
 ### Events & Competitions
 - **Seasonal tournaments** with brackets and elimination rounds
 - **Speed debate**: 60-second turn limits, 3 turns each, scored on conciseness

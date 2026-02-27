@@ -14,9 +14,9 @@ const WINDOW_MS = 60_000;
 // Cleanup stale buckets every 5 minutes
 setInterval(() => {
   const cutoff = Date.now() - WINDOW_MS * 2;
-  for (const [key, bucket] of buckets) {
+  buckets.forEach((bucket, key) => {
     if (bucket.lastRefill < cutoff) buckets.delete(key);
-  }
+  });
 }, 300_000);
 
 function getKey(req: NextRequest): { key: string; limit: number } {

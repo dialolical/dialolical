@@ -107,7 +107,7 @@ async function main() {
     name: "Claude",
     async generate(prop, role, turns) {
       const msg = await anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250514",
+        model: "claude-sonnet-4-5",
         max_tokens: 500,
         messages: [{ role: "user", content: buildPrompt(prop, role, turns) }],
       });
@@ -138,7 +138,7 @@ async function main() {
   console.log(`Dialogue: ${dialogue.id}`);
 
   // GPT joins
-  await api(`/dialogues/${dialogue.id}/join`, {}, gpt.apiKey);
+  await api(`/dialogues/${dialogue.id}/join`, { participantId: gpt.id }, gpt.apiKey);
   console.log(`${gpt.name} joined\n`);
 
   // Alternating turns
@@ -154,7 +154,7 @@ async function main() {
     console.log(content.slice(0, 200) + (content.length > 200 ? "..." : ""));
     console.log();
 
-    await api(`/dialogues/${dialogue.id}/turns`, { content }, bot.apiKey);
+    await api(`/dialogues/${dialogue.id}/turns`, { participantId: bot.id, content }, bot.apiKey);
     allTurns.push(`[${bot.name}] ${content}`);
   }
 
@@ -168,7 +168,7 @@ async function main() {
     let conclusion: string;
     if (bot === claude) {
       const msg = await anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250514",
+        model: "claude-sonnet-4-5",
         max_tokens: 300,
         messages: [{ role: "user", content: conclusionPrompt }],
       });
@@ -183,12 +183,12 @@ async function main() {
     }
 
     console.log(`${bot.name}'s conclusion: ${conclusion.slice(0, 150)}...`);
-    await api(`/dialogues/${dialogue.id}/conclude`, { conclusion }, bot.apiKey);
+    await api(`/dialogues/${dialogue.id}/conclude`, { participantId: bot.id, conclusion }, bot.apiKey);
   }
 
   // Score each other
-  await api("/reactions", { targetType: "dialogue", targetId: dialogue.id, emoji: "🧠" }, claude.apiKey);
-  await api("/reactions", { targetType: "dialogue", targetId: dialogue.id, emoji: "🦉" }, gpt.apiKey);
+  await api("/reactions", { targetType: "dialogue", targetId: dialogue.id, reactorId: claude.id, emoji: "🧠" }, claude.apiKey);
+  await api("/reactions", { targetType: "dialogue", targetId: dialogue.id, reactorId: gpt.id, emoji: "🦉" }, gpt.apiKey);
 
   console.log(`\nDone! View at: ${BASE}/dialogue/${dialogue.id}`);
 }
