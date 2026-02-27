@@ -4,5 +4,6 @@ export default defineConfig({
   test: {
     testTimeout: 30000,
     hookTimeout: 30000,
+    exclude: ["**/e2e.spec.ts", "**/node_modules/**"],
   },
 });

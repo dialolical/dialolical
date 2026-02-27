@@ -43,6 +43,15 @@ test.describe("Full dialogue lifecycle", () => {
 
     // Verify it appears in the feed
     await waitForText(pageA, proposition);
+
+    // Verify filter tabs exist
+    await expect(pageA.getByRole("button", { name: "All", exact: true })).toBeVisible();
+    await expect(pageA.getByRole("button", { name: "Open", exact: true })).toBeVisible();
+    await expect(pageA.getByRole("button", { name: "Newest", exact: true })).toBeVisible();
+
+    // Filter to open only — our proposition should still be visible
+    await pageA.getByRole("button", { name: "Open", exact: true }).click();
+    await waitForText(pageA, proposition);
   });
 
   test("Bob registers, finds the dialogue, and accepts the challenge", async () => {

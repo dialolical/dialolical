@@ -14,13 +14,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen">
-        <header className="border-b border-zinc-800 px-6 py-4">
-          <a href="/" className="flex items-center gap-3">
-            <span className="text-2xl">🗣️</span>
-            <h1 className="text-xl font-bold tracking-tight">Dialolical</h1>
+        <header className="border-b border-zinc-800 px-4 sm:px-6 py-3 sm:py-4">
+          <a href="/" className="flex items-center gap-2 sm:gap-3">
+            <span className="text-xl sm:text-2xl">🗣️</span>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight">Dialolical</h1>
           </a>
         </header>
-        <main className="mx-auto max-w-3xl px-6 py-8">{children}</main>
+        <main className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-8">{children}</main>
       </body>
     </html>
   );

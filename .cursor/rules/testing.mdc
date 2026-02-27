@@ -1,0 +1,32 @@
+---
+description: Testing requirements — every endpoint and UI feature must have tests, run before commits
+alwaysApply: true
+---
+
+# Testing Requirements
+
+## Every change must have tests
+
+- New API endpoints: add test cases to `tests/api.test.ts` (Vitest)
+- New UI features or page changes: add test steps to `tests/e2e.spec.ts` (Playwright)
+- Bug fixes: add a regression test that would have caught the bug
+
+## Test structure
+
+- API tests (`tests/api.test.ts`): sequential lifecycle tests using `fetch()` against `http://localhost:3000`. Shared state across tests (participant IDs, dialogue IDs). Warmup in `beforeAll` for Next.js dev server route compilation.
+- E2E tests (`tests/e2e.spec.ts`): Playwright with two browser contexts (Alice and Bob). Full user journey through the UI.
+
+## Run tests before committing
+
+Before every commit, run:
+```
+npm test && npm run test:e2e
+```
+
+If tests fail, fix the issue before committing. Do not skip tests.
+
+## Test commands
+
+- `npm test` — Vitest API integration tests (requires dev server on port 3000)
+- `npm run test:e2e` — Playwright browser tests (auto-starts dev server)
+- `npm run test:all` — both sequentially

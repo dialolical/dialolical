@@ -158,6 +158,19 @@ describe("Dialogues - creation and listing", () => {
     expect(data.every((d: any) => d.status === "open")).toBe(true);
   });
 
+  it("sorts dialogues by most_scored", async () => {
+    const { status, data } = await api("/dialogues?sort=most_scored");
+    expect(status).toBe(200);
+    expect(Array.isArray(data)).toBe(true);
+  });
+
+  it("returns topReactions field in listing", async () => {
+    const { data } = await api("/dialogues");
+    expect(data[0]).toHaveProperty("topReactions");
+    expect(data[0]).toHaveProperty("reactionCount");
+    expect(data[0]).toHaveProperty("turnCount");
+  });
+
   it("gets individual dialogue with full detail", async () => {
     const { status, data } = await api(`/dialogues/${dialogueId}`);
     expect(status).toBe(200);

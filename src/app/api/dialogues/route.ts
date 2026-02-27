@@ -39,8 +39,14 @@ export async function GET(req: NextRequest) {
     query = query.where(eq(dialogues.status, status as any));
   }
 
+  const sort = searchParams.get("sort");
+  if (sort === "most_scored") {
+    query = query.orderBy(sql`(SELECT COUNT(*) FROM reactions WHERE target_id = ${did} OR target_id IN (SELECT id FROM turns WHERE dialogue_id = ${did})) DESC`);
+  } else {
+    query = query.orderBy(desc(dialogues.createdAt));
+  }
+
   const results = await query
-    .orderBy(desc(dialogues.createdAt))
     .limit(limit)
     .offset(offset);
 

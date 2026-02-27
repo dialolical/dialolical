@@ -30,26 +30,41 @@ const STATUS_COLORS: Record<string, string> = {
   concluded: "bg-zinc-700 text-zinc-300",
 };
 
+const FILTER_TABS = [
+  { value: "", label: "All" },
+  { value: "open", label: "Open" },
+  { value: "in_progress", label: "Active" },
+  { value: "scoring", label: "Scoring" },
+  { value: "concluded", label: "Concluded" },
+];
+
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest" },
+  { value: "most_scored", label: "Most scored" },
+];
+
 export default function Home() {
   const [dialogues, setDialogues] = useState<Dialogue[]>([]);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [participantName, setParticipantName] = useState("");
+  const [filter, setFilter] = useState("");
+  const [sort, setSort] = useState("newest");
 
-  // Registration form
   const [regName, setRegName] = useState("");
   const [regType, setRegType] = useState<"human" | "bot">("human");
-
-  // New dialogue form
   const [proposition, setProposition] = useState("");
 
   const loadDialogues = useCallback(async () => {
-    const res = await fetch("/api/dialogues");
+    const params = new URLSearchParams();
+    if (filter) params.set("status", filter);
+    if (sort !== "newest") params.set("sort", sort);
+    const qs = params.toString();
+    const res = await fetch(`/api/dialogues${qs ? `?${qs}` : ""}`);
     const data = await res.json();
     setDialogues(data);
-  }, []);
+  }, [filter, sort]);
 
   useEffect(() => {
-    // Check for saved participant
     const saved = localStorage.getItem("dialolical_participant");
     if (saved) {
       const p = JSON.parse(saved);
@@ -92,10 +107,9 @@ export default function Home() {
     loadDialogues();
   }
 
-  // --- Not registered ---
   if (!participantId) {
     return (
-      <div className="max-w-md mx-auto mt-16">
+      <div className="max-w-md mx-auto mt-12 px-4">
         <h2 className="text-2xl font-bold mb-2">Enter the arena</h2>
         <p className="text-zinc-400 mb-6">
           Pick a name. Argue about things. Score each other.
@@ -116,7 +130,7 @@ export default function Home() {
                 : "bg-zinc-800 text-zinc-400"
             }`}
           >
-            🧑 Human
+            Human
           </button>
           <button
             onClick={() => setRegType("bot")}
@@ -126,7 +140,7 @@ export default function Home() {
                 : "bg-zinc-800 text-zinc-400"
             }`}
           >
-            🤖 Bot
+            Bot
           </button>
         </div>
         <button
@@ -139,10 +153,9 @@ export default function Home() {
     );
   }
 
-  // --- Registered ---
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
         <p className="text-zinc-400">
           Playing as{" "}
           <span className="text-zinc-100 font-semibold">{participantName}</span>
@@ -153,19 +166,19 @@ export default function Home() {
             setParticipantId(null);
             setParticipantName("");
           }}
-          className="text-xs text-zinc-500 hover:text-zinc-300"
+          className="text-xs text-zinc-500 hover:text-zinc-300 self-start sm:self-auto"
         >
           switch identity
         </button>
       </div>
 
       {/* New proposition */}
-      <div className="mb-10">
+      <div className="mb-8">
         <h2 className="text-lg font-semibold mb-2">Post a proposition</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-4 py-2 focus:outline-none focus:border-zinc-500"
-            placeholder="e.g. &quot;LLMs cannot reason, they pattern match&quot;"
+            placeholder='e.g. "LLMs cannot reason, they pattern match"'
             value={proposition}
             onChange={(e) => setProposition(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && createDialogue()}
@@ -179,11 +192,44 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Filter tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div className="flex gap-1 overflow-x-auto">
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setFilter(tab.value)}
+              className={`px-3 py-1 rounded text-sm whitespace-nowrap transition ${
+                filter === tab.value
+                  ? "bg-zinc-100 text-zinc-900 font-semibold"
+                  : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setSort(opt.value)}
+              className={`px-3 py-1 rounded text-xs whitespace-nowrap transition ${
+                sort === opt.value
+                  ? "bg-zinc-700 text-zinc-200"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Dialogue list */}
-      <h2 className="text-lg font-semibold mb-4">Dialogues</h2>
       {dialogues.length === 0 ? (
-        <p className="text-zinc-500">
-          No dialogues yet. Post the first proposition!
+        <p className="text-zinc-500 py-8 text-center">
+          {filter ? "No dialogues match this filter." : "No dialogues yet. Post the first proposition!"}
         </p>
       ) : (
         <div className="space-y-3">
@@ -193,21 +239,21 @@ export default function Home() {
               href={`/dialogue/${d.id}`}
               className="block bg-zinc-900 border border-zinc-800 rounded-lg p-4 hover:border-zinc-600 transition"
             >
-              <div className="flex items-start justify-between gap-4">
-                <p className="font-medium">&ldquo;{d.proposition}&rdquo;</p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-medium text-sm sm:text-base">&ldquo;{d.proposition}&rdquo;</p>
                 <span
-                  className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
+                  className={`text-xs px-2 py-0.5 rounded whitespace-nowrap shrink-0 ${
                     STATUS_COLORS[d.status] || ""
                   }`}
                 >
-                  {d.status}
+                  {d.status.replace("_", " ")}
                 </span>
               </div>
-              <div className="mt-2 text-sm text-zinc-400 flex gap-4">
+              <div className="mt-2 text-sm text-zinc-400 flex flex-wrap gap-x-4 gap-y-1">
                 <span>{d.challengerName}</span>
                 {d.respondentName && (
                   <>
-                    <span>vs</span>
+                    <span className="text-zinc-600">vs</span>
                     <span>{d.respondentName}</span>
                   </>
                 )}
